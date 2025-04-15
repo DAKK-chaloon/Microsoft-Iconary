@@ -7,8 +7,6 @@
 ## ✨ Features
 
 - ⚡ Instant search with fuzzy matching
-- 📄 Organized by product family (Azure, Dynamics, Power Platform, etc.)
-- 🔍 Filter by category
 - 📋 One-click SVG copy to clipboard
 - 🌐 Fully responsive and modern UI
 
@@ -25,27 +23,6 @@ All icons included in this project come from official Microsoft documentation an
 - [Microsoft 365 Icons](https://learn.microsoft.com/en-us/microsoft-365/solutions/architecture-icons-templates?view=o365-worldwide)
 
 All trademarks and copyrights are owned by Microsoft Corporation. This project is not affiliated with or endorsed by Microsoft.
-
----
-
-## 🚀 Tech Stack
-
-- **React** + **TypeScript**
-- **Tailwind CSS** for styling
-- **shadcn/ui** for UI components
-- **Fuse.js** for fuzzy search
-- **Clipboard API** for SVG copy
-
----
-
-## ⚙️ Installation
-
-```bash
-git clone https://github.com/your-username/microsoft-iconary.git
-cd microsoft-iconary
-npm install
-npm run dev
-```
 
 ---
 
