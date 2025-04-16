@@ -4,45 +4,65 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Microsoft Iconary</title>
+  <!-- Chargement du CDN Play de Tailwind (qui prendra en compte la configuration précédente) -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <script src="script.js" defer></script>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- Définition de la configuration Tailwind et de l'état initial du thème -->
+  <script>
+    // Configuration de Tailwind pour utiliser le mode sombre basé sur la classe
+    tailwind.config = {
+      darkMode: 'class',
+    }
+    // Définir immédiatement l'état du thème dès le chargement (avant le CSS)
+    if (localStorage.theme === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else if (localStorage.theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      // Si aucun choix n'est enregistré, on peut prendre la préférence utilisateur
+      document.documentElement.classList.add('dark');
+    }
+  </script>
   <style>
     .lazy-image {
       filter: blur(4px);
       transition: filter 0.3s ease-out;
     }
+
     .lazy-image.loaded {
       filter: blur(0);
     }
   </style>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-    }
-  </script>
 </head>
+
 <body class="bg-neutral-100 dark:bg-[#1e1e20] text-neutral-900 dark:text-white font-sans">
   <div class="min-h-screen flex flex-col">
-    <header class="bg-white/70 dark:bg-neutral-800/90 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-700 px-6 py-4 sticky top-0 z-50">
+    <header
+      class="bg-white/70 dark:bg-neutral-800/90 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-700 px-6 py-4 sticky top-0 z-50">
       <div class="flex justify-between items-center max-w-7xl mx-auto">
         <h1 class="text-2xl font-semibold tracking-tight">Microsoft Iconary</h1>
-        <button id="toggleDark" class="px-4 py-2 rounded-md text-sm font-medium transition border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700">
-          Mode sombre
+        <button id="toggleDark"
+          class="px-4 py-2 rounded-md text-sm font-medium transition border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700">
+          <!-- Le contenu (icône SVG) sera injecté ici -->
         </button>
       </div>
     </header>
 
     <main class="flex-1 px-6 py-10 max-w-7xl mx-auto w-full">
       <div class="mb-8">
-        <input id="searchInput" type="text" placeholder="Rechercher une icône..." class="w-full px-5 py-3 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm" />
+        <input id="searchInput" type="text" placeholder="Rechercher une icône..."
+          class="w-full px-5 py-3 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm" />
       </div>
-      <div id="iconsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6"></div>
-      <p id="noResults" class="text-center mt-12 text-neutral-500 dark:text-neutral-400 hidden">Aucune icône trouvée...</p>
+      <div id="iconsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6">
+      </div>
+      <p id="noResults" class="text-center mt-12 text-neutral-500 dark:text-neutral-400 hidden">Aucune icône trouvée...
+      </p>
     </main>
 
-    <footer class="bg-transparent text-center text-xs text-neutral-400 dark:text-neutral-500 py-6">
+    <footer class="bg-transparent text-center text-sm text-black-400 dark:text-white-500 py-6">
       Fait avec ❤️ par David GHESQUIERE – Microsoft Iconary
     </footer>
   </div>
 </body>
+
 </html>
