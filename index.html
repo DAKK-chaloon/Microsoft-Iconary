@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
   <link rel="icon" type="image/png" href="favicon.png">
   <meta charset="UTF-8" />
@@ -50,7 +51,7 @@
     </header>
 
     <main class="flex-1 px-6 py-10 max-w-7xl mx-auto w-full">
-      <div class="mb-8">
+      <div class="mb-8 sticky top-[88px] z-40 bg-neutral-100 dark:bg-[#1e1e20] pt-2">
         <input id="searchInput" type="text" placeholder="Rechercher une icône..."
           class="w-full px-5 py-3 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm" />
       </div>
@@ -64,6 +65,11 @@
       Fait avec ❤️ par David GHESQUIERE – Microsoft Iconary
     </footer>
   </div>
+  <button onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+    class="fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition">
+    ↑
+  </button>
+
 </body>
 
 </html>
