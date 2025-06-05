@@ -1,294 +1,314 @@
-// Exécution dès que le DOM est entièrement chargé
-window.addEventListener("DOMContentLoaded", () => {
-  // Ajout du bandeau d'avertissement pour Firefox, inséré juste après l'en-tête
-  if (navigator.userAgent.includes("Firefox")) {
-    const banner = document.createElement("div");
-    banner.innerText = "Attention : sous Firefox, la copie du SVG se fera en format PNG (fonctionnalités limitées).";
-    // Styles pour un bandeau discret placé sous la navbar
-    banner.style.backgroundColor = "#f0f0f0";
-    banner.style.color = "#333";
-    banner.style.padding = "5px 10px";
-    banner.style.fontSize = "12px";
-    banner.style.textAlign = "center";
-    banner.style.borderBottom = "1px solid #ccc";
-    banner.style.position = "relative";
-    banner.style.marginBottom = "5px";
-  
-    // Création d'un bouton "Fermer" positionné à droite
-    const closeBtn = document.createElement("button");
-    closeBtn.innerText = "✖️";
-    closeBtn.style.float = "right";
-    closeBtn.style.background = "none";
-    closeBtn.style.border = "none";
-    closeBtn.style.color = "#007bff";
-    closeBtn.style.cursor = "pointer";
-    closeBtn.style.fontSize = "12px";
-    // Ajout du bouton dans le bandeau
-    banner.appendChild(closeBtn);
-    closeBtn.addEventListener("click", () => {
-      banner.remove();
-    });
-  
-    // Insérer le bandeau sous l'élément <header> s'il existe, sinon en début de <body>
-    const header = document.querySelector("header");
-    if (header && header.parentNode) {
-      header.parentNode.insertBefore(banner, header.nextSibling);
-    } else {
-      document.body.prepend(banner);
-    }
+// -------------------------------------------------
+// 1) Exemple de tableau d’icônes (à remplacer par la vôtre)
+// -------------------------------------------------
+const icons = [
+  {
+    name: 'home',
+    svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9.75L12 3l9 6.75V21a.75.75 0 01-.75.75H3.75A.75.75 0 013 21V9.75z"/></svg>'
+  },
+  {
+    name: 'search',
+    svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M21.53 20.47l-4.82-4.82a8 8 0 10-1.06 1.06l4.82 4.82a.75.75 0 001.06-1.06zM10.5 17a6.5 6.5 0 110-13 6.5 6.5 0 010 13z"/></svg>'
   }
-  
-  // ----------------------
-  // Gestion du dark mode et du basculement
-  // ----------------------
-  const html = document.documentElement;
-  const toggleDark = document.getElementById('toggleDark');
-  
-  const sunIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-      d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364-6.364l-1.414 1.414M7.05 16.95l-1.414 1.414M16.95 16.95l-1.414 1.414M7.05 7.05L5.636 5.636M12 8a4 4 0 100 8 4 4 0 000-8z"/>
-  </svg>`;
-  
-  const moonIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-      d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
-  </svg>`;
-  
-  toggleDark.innerHTML = html.classList.contains('dark') ? sunIcon : moonIcon;
-  
-  toggleDark.addEventListener('click', () => {
-    if (html.classList.contains('dark')) {
-      html.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-      toggleDark.innerHTML = moonIcon;
-    } else {
-      html.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-      toggleDark.innerHTML = sunIcon;
-    }
+  // … placez ici l’ensemble de vos icônes
+];
+
+// -------------------------------------------------
+// 2) Variables globales pour favoris, historique, modale, etc.
+// -------------------------------------------------
+let showFavorites = false;
+let showHistory = false;
+let favorites = JSON.parse(localStorage.getItem('iconFavorites') || '[]');
+let history = JSON.parse(localStorage.getItem('iconHistory') || '[]');
+
+// Configuration Fuse.js pour la recherche fuzzy
+const fuseOptions = { keys: ['name'], threshold: 0.3 };
+const fuse = new Fuse(icons, fuseOptions);
+
+// Sélections DOM
+const iconsGrid = document.getElementById('icons-grid');
+const favoritesList = document.getElementById('favorites-list');
+const historyList = document.getElementById('history-list');
+const mainSection = document.getElementById('main-section');
+const favoritesSection = document.getElementById('favorites-section');
+const historySection = document.getElementById('history-section');
+const searchInput = document.getElementById('search');
+const toggleFavBtn = document.getElementById('toggle-favorites');
+const toggleHistBtn = document.getElementById('toggle-history');
+const exportZipBtn = document.getElementById('export-zip');
+
+const previewModal = document.getElementById('preview-modal');
+const previewIcon = document.getElementById('preview-icon');
+const closeModalBtn = document.getElementById('close-modal');
+const copySvgBtn = document.getElementById('copy-svg');
+const copyPngBtn = document.getElementById('copy-png');
+const formatMenuToggle = document.getElementById('format-menu-toggle');
+const formatMenu = document.getElementById('format-menu');
+const formatOptions = document.querySelectorAll('.format-option');
+const toggleFavModalBtn = document.getElementById('toggle-favorite-modal');
+const favIconModal = document.getElementById('fav-icon-modal');
+
+let currentIcon = null;
+
+// -------------------------------------------------
+// 3) Fonctions de sauvegarde en localStorage
+// -------------------------------------------------
+function saveFavorites() {
+  localStorage.setItem('iconFavorites', JSON.stringify(favorites));
+}
+
+function saveHistory() {
+  localStorage.setItem('iconHistory', JSON.stringify(history));
+}
+
+function addToHistory(icon) {
+  // Déjà présent ? On le retire puis le remet en tête
+  history = history.filter(i => i.name !== icon.name);
+  history.unshift(icon);
+  if (history.length > 20) history.pop();
+  saveHistory();
+}
+
+// -------------------------------------------------
+// 4) Rendu d’une liste d’icônes (grid)
+// -------------------------------------------------
+function renderIcons(list, container) {
+  container.innerHTML = '';
+  list.forEach(icon => {
+    const div = document.createElement('div');
+    div.classList.add(
+      'relative',
+      'p-2',
+      'border',
+      'border-gray-200',
+      'dark:border-gray-700',
+      'rounded-md',
+      'hover:bg-gray-100',
+      'dark:hover:bg-gray-800',
+      'cursor-pointer'
+    );
+    div.innerHTML = `
+      <div class="icon-content text-4xl" data-name="\${icon.name}">\${icon.svg}</div>
+      <button class="favorite-btn absolute top-1 right-1 text-yellow-500 \${favorites.find(f => f.name === icon.name) ? 'opacity-100' : 'opacity-20'}">
+        <i class="fas fa-star"></i>
+      </button>
+    `;
+    // Clic sur l'icône -> ouvre la modale
+    div.querySelector('.icon-content').addEventListener('click', () => openPreview(icon));
+    // Clic sur étoile -> toggle favori
+    div.querySelector('.favorite-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      toggleFavorite(icon);
+      renderAll();
+    });
+    container.appendChild(div);
   });
-  
-  // ------------------------------
-  // Fonction utilitaire : conversion d'un Data URI en Blob
-  // ------------------------------
-  function dataURItoBlob(dataURI) {
-    const parts = dataURI.split(',');
-    const mimeMatch = parts[0].match(/:(.*?);/);
-    if (!mimeMatch) {
-      throw new Error("Format de Data URI invalide.");
-    }
-    const mime = mimeMatch[1];
-    const byteString = atob(parts[1]);
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) {
-      ia[i] = byteString.charCodeAt(i);
-    }
-    return new Blob([ab], { type: mime });
+}
+
+// -------------------------------------------------
+// 5) Ouverture/fermeture de la modale d’aperçu
+// -------------------------------------------------
+function openPreview(icon) {
+  currentIcon = icon;
+  previewIcon.innerHTML = icon.svg;
+  favIconModal.classList.toggle('text-yellow-500', !!favorites.find(f => f.name === icon.name));
+  previewModal.classList.remove('hidden');
+  addToHistory(icon);
+}
+
+function closePreview() {
+  previewModal.classList.add('hidden');
+  currentIcon = null;
+}
+
+// -------------------------------------------------
+// 6) Toggle favori (dans modale ou grille)
+// -------------------------------------------------
+function toggleFavorite(icon) {
+  if (favorites.find(f => f.name === icon.name)) {
+    favorites = favorites.filter(f => f.name !== icon.name);
+  } else {
+    favorites.push(icon);
   }
-  
-  // ------------------------------
-  // Fonctions de copie du SVG en image
-  // ------------------------------
-  
-  // Copie le SVG en tant qu'image vectorielle (si supporté)
-  function copySvgAsImage(svgText) {
-    return new Promise((resolve, reject) => {
-      try {
-        const encodedSvg = btoa(unescape(encodeURIComponent(svgText)));
-        const dataURI = "data:image/svg+xml;base64," + encodedSvg;
-        const blob = dataURItoBlob(dataURI);
-        navigator.clipboard.write([
-          new ClipboardItem({ [blob.type]: blob })
-        ]).then(resolve).catch(reject);
-      } catch (e) {
-        reject(e);
-      }
-    });
-  }
-  
-  // Fallback : conversion du SVG en PNG avant de copier (résultat raster, fonctionnalités limitées)
-  function copySvgAsPng(svgText, width, height) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const encodedSvg = btoa(unescape(encodeURIComponent(svgText)));
-      const dataURI = "data:image/svg+xml;base64," + encodedSvg;
-      img.src = dataURI;
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob((blob) => {
-          if (blob) {
-            navigator.clipboard.write([
-              new ClipboardItem({ "image/png": blob })
-            ]).then(resolve).catch(reject);
-          } else {
-            reject(new Error("La conversion du canvas en blob a échoué."));
-          }
-        }, "image/png");
-      };
-      img.onerror = reject;
-    });
-  }
-  
-  // ------------------------------
-  // Gestion de l'affichage des icônes, recherche et lazy loading
-  // ------------------------------
-  let iconsData = {};
-  let iconsLoaded = 0;
-  const batchSize = 40;
-  let filteredIcons = [];
-  
-  fetch('icons_sorted_structure.json')
-    .then(res => res.json())
-    .then(data => {
-      iconsData = data;
-      filteredIcons = getFilteredIcons('');
-      renderNextBatch();
-    });
-  
-  document.getElementById('searchInput').addEventListener('input', (e) => {
-    iconsLoaded = 0;
-    filteredIcons = getFilteredIcons(e.target.value);
-    document.getElementById('iconsGrid').innerHTML = '';
-    renderNextBatch();
+  saveFavorites();
+}
+
+// -------------------------------------------------
+// 7) Copier SVG dans le presse-papier
+// -------------------------------------------------
+function copySvg(icon) {
+  const blob = new Blob([icon.svg], { type: 'image/svg+xml' });
+  const item = new ClipboardItem({ 'image/svg+xml': blob });
+  navigator.clipboard.write([item]);
+}
+
+// -------------------------------------------------
+// 8) Copier PNG (canvg) dans le presse-papier
+// -------------------------------------------------
+async function copyPng(icon, size = 128) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  await canvg.Canvg.fromString(ctx, icon.svg).then(v => v.render());
+  canvas.toBlob(blob => {
+    const item = new ClipboardItem({ 'image/png': blob });
+    navigator.clipboard.write([item]);
   });
-  
-  function getFilteredIcons(search) {
-    const results = [];
-    const walk = (node, path) => {
-      if (node.files) {
-        for (const file of node.files) {
-          if (file.toLowerCase().includes(search.toLowerCase())) {
-            results.push({ path: `${path}/${file}`, name: file });
-          }
-        }
-      }
-      for (const key in node) {
-        if (key !== 'files') {
-          walk(node[key], path ? `${path}/${key}` : key);
-        }
-      }
-    };
-    walk(iconsData, '');
-    document.getElementById('noResults').classList.toggle('hidden', results.length > 0);
-    return results;
+}
+
+// -------------------------------------------------
+// 9) Télécharger dans différents formats
+// -------------------------------------------------
+async function downloadFormat(icon, format) {
+  if (format === 'svg') {
+    const blob = new Blob([icon.svg], { type: 'image/svg+xml' });
+    saveAs(blob, `\${icon.name}.svg`);
+  } else if (format.startsWith('png')) {
+    const size = parseInt(format.split('-')[1]);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    await canvg.Canvg.fromString(ctx, icon.svg).then(v => v.render());
+    canvas.toBlob(blob => saveAs(blob, `\${icon.name}_\${size}x\${size}.png`));
+  } else if (format === 'ico') {
+    // Exemple simplifié : on crée un ZIP contenant 16×16 et 32×32
+    const zip = new JSZip();
+    const canvas16 = document.createElement('canvas');
+    const canvas32 = document.createElement('canvas');
+    canvas16.width = canvas16.height = 16;
+    canvas32.width = canvas32.height = 32;
+    const ctx16 = canvas16.getContext('2d');
+    const ctx32 = canvas32.getContext('2d');
+    await canvg.Canvg.fromString(ctx16, icon.svg).then(v => v.render());
+    await canvg.Canvg.fromString(ctx32, icon.svg).then(v => v.render());
+    const blob16 = await new Promise(res => canvas16.toBlob(res, 'image/png'));
+    const blob32 = await new Promise(res => canvas32.toBlob(res, 'image/png'));
+    zip.file(`\${icon.name}_16x16.png`, blob16);
+    zip.file(`\${icon.name}_32x32.png`, blob32);
+    zip.generateAsync({ type: 'blob' }).then(content => saveAs(content, `\${icon.name}_pack.zip`));
   }
-  
-  function renderNextBatch() {
-    const grid = document.getElementById('iconsGrid');
-    const batch = filteredIcons.slice(iconsLoaded, iconsLoaded + batchSize);
-  
-    for (const icon of batch) {
-      const card = document.createElement('div');
-      card.className = 'rounded-xl p-4 transition shadow hover:shadow-lg bg-white text-neutral-900 dark:bg-neutral-800 dark:text-white text-center relative group cursor-pointer';
-  
-      const fileName = icon.name;
-      const friendlyName = fileName
-        .replace(/\.(svg|png)/, '')
-        .replace(/[-_]/g, ' ')
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-  
-      card.innerHTML = `
-        <div class="relative group flex flex-col items-center">
-          <img data-src="Icons_Sorted${icon.path}" alt="${fileName}" class="lazy-image h-12 object-contain" style="pointer-events: none;" />
-          <div class="text-xs mt-2 truncate w-full" title="${fileName}">${friendlyName}</div>
-          <div class="copy-tooltip absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full opacity-0 group-hover:opacity-100 transition bg-black dark:bg-neutral-700 text-white text-xs px-2 py-1 whitespace-nowrap rounded shadow-md z-50 pointer-events-none">
-            Copier l’image
-          </div>
-          <div class="absolute hidden group-hover:flex items-center justify-center px-3 py-1 rounded bg-black dark:bg-neutral-700 text-white text-xs top-0 left-1/2 transform -translate-x-1/2 -translate-y-full whitespace-nowrap shadow-md z-50">
-            ${fileName}
-          </div>
-        </div>
-      `;
-  
-      card.addEventListener('click', () => {
-        fetch(`Icons_Sorted${icon.path}`)
-          .then(response => response.text())
-          .then(svgText => {
-            // Normaliser le SVG pour des dimensions fixes (ici 100x100)
-            try {
-              const parser = new DOMParser();
-              const doc = parser.parseFromString(svgText, "image/svg+xml");
-              const svgElem = doc.documentElement;
-              svgElem.setAttribute("width", "100");
-              svgElem.setAttribute("height", "100");
-              if (!svgElem.hasAttribute("viewBox")) {
-                svgElem.setAttribute("viewBox", "0 0 100 100");
-              }
-              svgText = new XMLSerializer().serializeToString(svgElem);
-            } catch (e) {
-              console.error("Erreur lors du parsing du SVG", e);
-            }
-  
-            // Vérifier si le navigateur supporte la copie du SVG en tant qu'image vectorielle
-            const supportsSvg = (ClipboardItem && ClipboardItem.supports && ClipboardItem.supports("image/svg+xml"));
-            let copyPromise;
-            if (supportsSvg) {
-              copyPromise = copySvgAsImage(svgText);
-            } else {
-              // Fallback : convertir le SVG en PNG pour la copie
-              copyPromise = copySvgAsPng(svgText, 100, 100);
-            }
-            return copyPromise;
-          })
-          .then(() => {
-            const tooltip = card.querySelector('.copy-tooltip');
-            if (tooltip) {
-              tooltip.textContent = '✔ Copié';
-              tooltip.classList.remove('bg-black', 'dark:bg-neutral-700');
-              tooltip.classList.add('bg-green-500');
-              setTimeout(() => {
-                tooltip.textContent = 'Copier l’image';
-                tooltip.classList.remove('bg-green-500');
-                tooltip.classList.add('bg-black', 'dark:bg-neutral-700');
-              }, 1000);
-            }
-          })
-          .catch(err => {
-            const tooltip = card.querySelector('.copy-tooltip');
-            if (tooltip) {
-              if (err.message === "limited") {
-                tooltip.textContent = 'Copie avec des fonctions limitées';
-              } else {
-                tooltip.textContent = 'Erreur';
-              }
-            }
-            console.error(err);
-          });
-      });
-  
-      grid.appendChild(card);
-    }
-  
-    lazyLoadImages();
-    iconsLoaded += batch.length;
+}
+
+// -------------------------------------------------
+// 10) Rendu global (selon recherche / favoris / historique)
+// -------------------------------------------------
+function renderAll() {
+  const query = searchInput.value.trim();
+  let results;
+  if (query) {
+    results = fuse.search(query).map(r => r.item);
+  } else {
+    results = icons;
   }
-  
-  function lazyLoadImages() {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const img = entry.target;
-          img.src = img.dataset.src;
-          img.onload = () => img.classList.add('loaded');
-          observer.unobserve(img);
-        }
-      });
-    }, { threshold: 0.1 });
-    document.querySelectorAll('img[data-src]:not([src])').forEach(img => {
-      observer.observe(img);
-    });
+
+  // Si on affiche les favoris
+  if (showFavorites) {
+    const favIcons = favorites.filter(icon => (!query) || (fuse.search(query).some(r => r.item.name === icon.name)));
+    renderIcons(favIcons, favoritesList);
   }
-  
-  window.addEventListener('scroll', () => {
-    if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) {
-      renderNextBatch();
-    }
+  // Si on affiche l'historique
+  if (showHistory) {
+    const histIcons = history.filter(icon => (!query) || (fuse.search(query).some(r => r.item.name === icon.name)));
+    renderIcons(histIcons, historyList);
+  }
+  // Sinon affichage normal
+  if (!showFavorites && !showHistory) {
+    renderIcons(results, iconsGrid);
+  }
+
+  // Bouton Export scraper visible seulement en mode grille avec recherche active
+  if (!showFavorites && !showHistory && query) {
+    exportZipBtn.classList.remove('hidden');
+  } else {
+    exportZipBtn.classList.add('hidden');
+  }
+}
+
+// -------------------------------------------------
+// 11) Gestion du toggle Thème Dark/Light
+// -------------------------------------------------
+const themeToggleBtn = document.getElementById('theme-toggle');
+const themeIcon = document.getElementById('theme-icon');
+function updateThemeIcon() {
+  if (document.documentElement.classList.contains('dark')) {
+    themeIcon.classList.replace('fa-moon', 'fa-sun');
+  } else {
+    themeIcon.classList.replace('fa-sun', 'fa-moon');
+  }
+}
+themeToggleBtn.addEventListener('click', () => {
+  document.documentElement.classList.toggle('dark');
+  updateThemeIcon();
+});
+// Initialisation selon préférence système
+if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+  document.documentElement.classList.add('dark');
+}
+updateThemeIcon();
+
+// -------------------------------------------------
+// 12) Événements DOM
+// -------------------------------------------------
+searchInput.addEventListener('input', () => renderAll());
+
+toggleFavBtn.addEventListener('click', () => {
+  showFavorites = !showFavorites;
+  showHistory = false;
+  favoritesSection.classList.toggle('hidden', !showFavorites);
+  historySection.classList.add('hidden');
+  mainSection.classList.toggle('hidden', showFavorites);
+  renderAll();
+});
+toggleHistBtn.addEventListener('click', () => {
+  showHistory = !showHistory;
+  showFavorites = false;
+  historySection.classList.toggle('hidden', !showHistory);
+  favoritesSection.classList.add('hidden');
+  mainSection.classList.toggle('hidden', showHistory);
+  renderAll();
+});
+
+closeModalBtn.addEventListener('click', closePreview);
+copySvgBtn.addEventListener('click', () => { if (currentIcon) copySvg(currentIcon); });
+copyPngBtn.addEventListener('click', () => { if (currentIcon) copyPng(currentIcon, 128); });
+
+formatMenuToggle.addEventListener('click', () => formatMenu.classList.toggle('hidden'));
+formatOptions.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const format = btn.getAttribute('data-format');
+    if (currentIcon) downloadFormat(currentIcon, format);
+    formatMenu.classList.add('hidden');
   });
 });
+
+toggleFavModalBtn.addEventListener('click', () => {
+  if (currentIcon) toggleFavorite(currentIcon);
+  favIconModal.classList.toggle('text-yellow-500');
+  renderAll();
+});
+
+exportZipBtn.addEventListener('click', () => {
+  const zip = new JSZip();
+  const visibleIcons = fuse.search(searchInput.value.trim()).map(r => r.item);
+  const promises = visibleIcons.map(icon => {
+    return new Promise(async res => {
+      const size = 128;
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      await canvg.Canvg.fromString(ctx, icon.svg).then(v => v.render());
+      canvas.toBlob(blob => {
+        zip.file(`\${icon.name}_\${size}x\${size}.png`, blob);
+        res();
+      });
+    });
+  });
+  Promise.all(promises).then(() => {
+    zip.generateAsync({ type: 'blob' }).then(content => saveAs(content, `icons_pack.zip`));
+  });
+});
+
+// -------------------------------------------------
+// 13) Lancement du rendu initial
+// -------------------------------------------------
+renderAll();
